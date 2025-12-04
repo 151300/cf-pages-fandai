@@ -1,36 +1,25 @@
 export default {
-  async fetch(request, env, ctx) {
-    // 从环境变量获取目标URL，如果没有设置则使用默认值
-    const TARGET_URL = env.TARGET_URL || "https://huggingface.co";
-    
+  async fetch(request, env) {
+    const targetUrl = env.TARGET_URL || 'https://default.com'; // 使用环境变量，默认值备用
+    const url = new URL(request.url);
+    const target = new URL(url.pathname + url.search, targetUrl);
+
+    // 创建新请求，修正Header
+    const newRequest = new Request(target, {
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+      redirect: 'manual'
+    });
+
     try {
-      const url = new URL(request.url);
-      const targetUrl = new URL(url.pathname + url.search, TARGET_URL);
-
-      // 创建新的请求头
-      const newHeaders = new Headers(request.headers);
-      newHeaders.set('Host', targetUrl.hostname);
-      newHeaders.set('Referer', TARGET_URL);
-
-      // 创建代理请求
-      const proxyRequest = new Request(targetUrl, {
-        method: request.method,
-        headers: newHeaders,
-        body: request.body,
-        redirect: 'manual'
-      });
-
-      // 发送请求
-      const response = await fetch(proxyRequest);
-      
-      // 返回响应
-      return response;
-      
-    } catch (error) {
-      return new Response(`Proxy Error: ${error.message}`, { 
-        status: 502,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-      });
+      const response = await fetch(newRequest);
+      // 可选：修改响应头以解决CORS等问题
+      const newResponse = new Response(response.body, response);
+      newResponse.headers.set('Access-Control-Allow-Origin', '*');
+      return newResponse;
+    } catch (e) {
+      return new Response('Error: ' + e.message, { status: 502 });
     }
   }
 }
