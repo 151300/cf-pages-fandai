@@ -1,62 +1,36 @@
-// functions/[[path]].js
-// Cloudflare Pages Functions 请求处理程序
-// 此文件将捕获所有发往您Pages站点的请求，并将其代理到环境变量TARGET_URL指定的目标网站。
-
-export async function onRequest(context) {
-  // 从环境变量中获取目标网站URL
-  const TARGET_URL = context.env.TARGET_URL;
-
-  // 检查环境变量是否已设置
-  if (!TARGET_URL) {
-    return new Response('服务器配置错误: 未设置目标URL环境变量 (TARGET_URL)', { 
-      status: 500 
-    });
-  }
-
-  try {
-    // 获取原始请求信息
-    const request = context.request;
-    const incomingUrl = new URL(request.url);
+export default {
+  async fetch(request, env, ctx) {
+    // 从环境变量获取目标URL，如果没有设置则使用默认值
+    const TARGET_URL = env.TARGET_URL || "https://huggingface.co";
     
-    // 构建目标URL（保留路径和查询参数）
-    const targetUrl = new URL(
-      incomingUrl.pathname + incomingUrl.search, 
-      TARGET_URL
-    );
+    try {
+      const url = new URL(request.url);
+      const targetUrl = new URL(url.pathname + url.search, TARGET_URL);
 
-    // 创建新的请求头，修正关键字段以避免SSL/TLS错误
-    const newHeaders = new Headers(request.headers);
-    newHeaders.set('Host', targetUrl.hostname);        // 修正Host头
-    newHeaders.set('Referer', TARGET_URL);             // 修正Referer头
-    
-    // 移除可能引起问题的头字段
-    newHeaders.delete('CF-Connecting-IP');
-    newHeaders.delete('CF-EW-Via');
+      // 创建新的请求头
+      const newHeaders = new Headers(request.headers);
+      newHeaders.set('Host', targetUrl.hostname);
+      newHeaders.set('Referer', TARGET_URL);
 
-    // 创建新的请求对象
-    const proxyRequest = new Request(targetUrl.toString(), {
-      method: request.method,
-      headers: newHeaders,
-      body: request.body,
-      redirect: 'manual'  // 手动处理重定向
-    });
+      // 创建代理请求
+      const proxyRequest = new Request(targetUrl, {
+        method: request.method,
+        headers: newHeaders,
+        body: request.body,
+        redirect: 'manual'
+      });
 
-    // 向目标网站发起代理请求
-    const response = await fetch(proxyRequest);
-
-    // 创建响应对象，并设置CORS头以允许跨域访问
-    const modifiedResponse = new Response(response.body, response);
-    modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
-    modifiedResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    modifiedResponse.headers.set('Access-Control-Allow-Headers', '*');
-
-    return modifiedResponse;
-
-  } catch (error) {
-    // 错误处理
-    return new Response(`代理错误: ${error.message}`, { 
-      status: 502,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-    });
+      // 发送请求
+      const response = await fetch(proxyRequest);
+      
+      // 返回响应
+      return response;
+      
+    } catch (error) {
+      return new Response(`Proxy Error: ${error.message}`, { 
+        status: 502,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
+    }
   }
 }
