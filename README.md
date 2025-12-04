@@ -1,2 +1,5 @@
 # cf-pages-fandai
-代码都Ai给的，放在好修改。网站代理
+代码都Ai给的，放在好修改。网站反代
+
+变量名:  TARGET_URL 
+示例：https://huggingface.co
